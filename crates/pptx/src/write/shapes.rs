@@ -278,6 +278,11 @@ pub fn shape(w: &mut W, x: &mut Exp, o: &mut Out, cx: &mut Ctx, s: &Shape, depth
         }
         ShapeKind::Picture { fill } => {
             let id = cx.id_for(s);
+            if x.image_part(fill.media).is_none() {
+                let notice = deckcraft_render::compatibility_notice_shape(s, "图片格式不支持、文件缺失或损坏");
+                sp(w, x, o, id, &notice, false);
+                return;
+            }
             w.open0("p:pic");
             w.open0("p:nvPicPr");
             cnvpr(w, x, o, id, s);
@@ -571,6 +576,11 @@ fn table(w: &mut W, x: &mut Exp, o: &mut Out, t: &Table) {
 }
 
 fn media(w: &mut W, x: &mut Exp, o: &mut Out, id: u32, s: &Shape, m: &deckcraft_model::MediaClip) {
+    if x.p.media(m.media).is_none_or(|item| item.data.is_empty() && item.link.is_none()) {
+        let notice = deckcraft_render::compatibility_notice_shape(s, "音频或视频文件缺失");
+        sp(w, x, o, id, &notice, false);
+        return;
+    }
     let kind = if m.video { "video" } else { "audio" };
     let link = x.media_rel(o, m.media, kind);
     let embed = x.media_rel_new(o, m.media, crate::opc::RT_MEDIA);
@@ -622,8 +632,18 @@ fn media(w: &mut W, x: &mut Exp, o: &mut Out, id: u32, s: &Shape, m: &deckcraft_
     }
     w.close("p:nvPr");
     w.close("p:nvPicPr");
-    let poster = deckcraft_model::style::PictureFill { media: m.poster.unwrap_or_default(), ..Default::default() };
-    dml::blip_fill(w, x, o, "p:blipFill", &poster);
+    if let Some(media) = m.poster {
+        let poster = deckcraft_model::style::PictureFill { media, ..Default::default() };
+        dml::blip_fill(w, x, o, "p:blipFill", &poster);
+    } else {
+        let rid = x.transparent_rel(o);
+        w.open0("p:blipFill");
+        w.empty("a:blip", A::new().a("r:embed", rid));
+        w.open0("a:stretch");
+        w.empty0("a:fillRect");
+        w.close("a:stretch");
+        w.close("p:blipFill");
+    }
     let mut s3 = s.clone();
     s3.fill = None;
     sp_pr(w, x, o, &s3, true);
@@ -650,17 +670,13 @@ fn opaque(w: &mut W, x: &mut Exp, o: &mut Out, cx: &mut Ctx, s: &Shape, xml: &st
         p.name = label.to_string();
     }
     match preview {
-        Some(m) if x.p.media(m).is_some() => {
+        Some(m) if x.image_part(m).is_some() => {
             p.kind = ShapeKind::Picture { fill: deckcraft_model::style::PictureFill { media: m, ..Default::default() } };
             p.ph = None;
             shape_with_id(w, x, o, cx, &p, id);
         }
         _ => {
-            p.kind = ShapeKind::Shape;
-            p.ph = None;
-            p.geom = Geom::preset("rect");
-            p.fill = Some(Fill::None);
-            p.text = None;
+            p = deckcraft_render::compatibility_notice_shape(&p, "此对象无法导出，且没有可用预览");
             sp(w, x, o, id, &p, false);
         }
     }

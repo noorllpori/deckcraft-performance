@@ -18,6 +18,7 @@
 //! visual boxes.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
+pub mod document;
 
 mod bidi;
 pub mod datetime;
@@ -430,7 +431,7 @@ fn make_style(ctx: &Ctx, r: &RunProps, scale: f64, prompt: Option<Rgba>) -> Styl
     let family = resolve::font_family(ctx, r);
     let bold = r.bold.unwrap_or(false);
     let italic = r.italic.unwrap_or(false);
-    let face = FontDb::global().document_face(&family, style_name(bold, italic));
+    let face = document::for_document(ctx.pres, &family, style_name(bold, italic));
     let fake_bold = bold && face.weight < 550.0;
     let fake_italic = italic && !face.italic;
     let size = (r.size.unwrap_or(18.0) * scale).clamp(0.5, 4000.0);
@@ -499,8 +500,8 @@ fn face_chain(ctx: &Ctx, st: &Style, slot: FontSlot, script: Option<ScriptTag>) 
     let mut chain: Vec<Arc<FontFace>> = Vec::with_capacity(3);
     let mut push = |family: &str| {
         // Only families that exist: `FontDb::face` would substitute the default face.
-        if db.has_family(family) {
-            let f = db.face(family, st.style_name);
+        if db.has_family(family) || document::embedded_face(ctx.pres, family, st.style_name).is_some() {
+            let f = document::for_document(ctx.pres, family, st.style_name);
             if !chain.iter().any(|c| Arc::ptr_eq(c, &f)) {
                 chain.push(f);
             }
@@ -868,8 +869,8 @@ fn shape_cells(
             .sym
             .as_deref()
             .filter(|_| cluster.first().is_some_and(|c| ('\u{F000}'..='\u{F0FF}').contains(c)))
-            .filter(|f| db.has_family(f))
-            .map(|f| db.face(f, st.style_name))
+            .filter(|f| db.has_family(f) || document::embedded_face(ctx.pres, f, st.style_name).is_some())
+            .map(|f| document::for_document(ctx.pres, f, st.style_name))
             .filter(|f| deckcraft_fonts::covers_cluster(f, cluster));
         let face = match (sym_face, prev.as_ref()) {
             (Some(f), _) => f,

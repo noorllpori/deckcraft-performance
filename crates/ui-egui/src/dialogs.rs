@@ -265,9 +265,7 @@ fn body(app: &mut SlideApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             }
             ok || cancel
         }
-        "playbackPrecompile" => {
-            crate::playback::menu(app, ui)
-        }
+        "playbackPrecompile" => crate::playback::menu(app, ui),
         "quit" => {
             let names: Vec<String> = app.session.documents().iter().filter(|d| d.is_dirty()).map(|d| d.title()).collect();
             if names.is_empty() {

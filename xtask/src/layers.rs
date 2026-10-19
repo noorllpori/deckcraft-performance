@@ -55,7 +55,8 @@ pub const TABLE: &[(&str, Class)] = &[
     ("anim", Class::Layer(2)),
     ("format", Class::Layer(2)),
     ("render", Class::Layer(3)),
-    ("pptx", Class::Layer(3)),
+    // Portable picture export uses the renderer's PSD decoder and fallback rasterizer.
+    ("pptx", Class::Layer(4)),
     ("pdf", Class::Layer(4)),
     ("engine", Class::Layer(5)),
     ("ui-egui", Class::Layer(6)),

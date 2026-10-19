@@ -121,10 +121,11 @@ Detail in [file-format-parity.md](file-format-parity.md).
 - **Estimate:** 10–16 h (render the timeline frame by frame; an H.264 encoder is the hard part,
   FilmCraft has one to copy).
 
-### Embedded fonts aren't read or written
-- **Evidence:** no `p:embeddedFontLst` handling in `crates/pptx`.
-- **Impact:** decks that rely on embedded fonts reflow.
-- **Estimate:** 3–5 h.
+### Embedded font variants and fallback coverage remain partial
+- Performance branch now reads/writes `p:embeddedFontLst`, embeds permitted static TrueType/TTC faces,
+  uses uncompressed EOT per document and exposes a background font inspector.
+- CFF/variable font conversion, compressed/obfuscated EOT rendering and EMF document-font scoping remain open.
+  Unsupported existing font parts are retained. See [support and limits](font-embedding.md).
 
 ## Features
 
@@ -258,8 +259,10 @@ Detail in [localization-parity.md](localization-parity.md).
 
 Performance edition status, 2026-10-18: PSD merged-image import is implemented for RGB/gray
 8/16-bit files, with hash-based background refresh on selection/re-click. Layer editing,
-other color modes, ICC conversion, continuous file watching and a
-PPTX PNG fallback remain open; see [PSD linked pictures](psd-linked-pictures.md).
+other color modes, ICC conversion and continuous file watching remain open.
+The 0.6.3-performance.1 update (2026-10-19) adds PNG conversion and visible fallback notices for PPTX
+images; real-file Office/WPS validation remains open. See [PSD linked pictures](psd-linked-pictures.md)
+and [PPTX compatibility](pptx-compatibility.md).
 
 | Date | Change | Summary |
 |---|---|---|

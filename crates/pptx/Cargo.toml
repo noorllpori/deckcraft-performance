@@ -9,9 +9,15 @@ description = "DeckCraft PPTX: Office Open XML (PresentationML/DrawingML) import
 workspace = true
 
 [dependencies]
+deckcraft-fonts = { workspace = true }
+deckcraft-text = { workspace = true }
 deckcraft-model = { workspace = true }
 deckcraft-geom = { workspace = true }
 deckcraft-color = { workspace = true }
+deckcraft-render = { workspace = true }
+image = { workspace = true }
+png = "0.18"
+url = "2"
 quick-xml = { workspace = true }
 zip = { workspace = true }
 thiserror = { workspace = true }

@@ -118,11 +118,17 @@ fn decode_at(bytes: &[u8], side: u32) -> Option<image::RgbaImage> {
     if bytes.starts_with(b"8BPS") {
         return crate::psd::decode(bytes);
     }
-    let img = image::load_from_memory(bytes).ok()?;
-    let (w, h) = (img.width(), img.height());
-    if w == 0 || h == 0 || (w as u64) * (h as u64) > 400_000_000 {
+    let reader = || image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format().ok();
+    let (w, h) = reader()?.into_dimensions().ok()?;
+    // Bound before decoding or expanding to RGBA, including export compatibility conversion.
+    if w == 0 || h == 0 || u64::from(w) * u64::from(h) > (256 << 20) / 4 {
         return None;
     }
+    let mut reader = reader()?;
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(256 << 20);
+    reader.limits(limits);
+    let img = reader.decode().ok()?;
     Some(img.to_rgba8())
 }
 

@@ -12,6 +12,7 @@ pub mod control;
 pub mod credits;
 pub mod dialogs;
 pub mod fillui;
+mod font_inspector;
 pub mod i18n;
 pub mod icons;
 #[cfg(not(target_arch = "wasm32"))]
@@ -148,6 +149,7 @@ impl Default for UiState {
 
 /// UI-only commands (id, label, shortcut, params).
 pub const UI_COMMANDS: &[(&str, &str, Option<&str>, &str)] = &[
+    ("view.fontInspector", "Font Inspector…", None, "{}"),
     ("view.normal", "Normal", None, "{}"),
     ("view.outline", "Outline View", None, "{}"),
     ("view.sorter", "Slide Sorter", None, "{}"),
@@ -219,6 +221,7 @@ pub struct SlideApp {
     pub textures: textures::Textures,
     pub control_rx: Option<Receiver<ControlRequest>>,
     pub dialog: Option<dialogs::Dialog>,
+    pub(crate) font_inspector: font_inspector::State,
     pub show: Option<show::Show>,
     /// Precompiled display-sized textures used by slide-show playback.
     pub playback_cache: playback::PlaybackCache,
@@ -279,6 +282,7 @@ impl SlideApp {
             textures: textures::Textures::default(),
             control_rx: None,
             dialog: None,
+            font_inspector: Default::default(),
             show: None,
             playback_cache: playback::PlaybackCache::default(),
             media: media::MediaHost::new(audio_out),
@@ -471,14 +475,17 @@ impl SlideApp {
                                 self.ui.recent.insert(0, path.clone());
                                 self.ui.recent.truncate(12);
                                 self.set_status(format!("Saved {path}"));
+                                self.close_backstage();
                             }
                         }
                     }
                     finished = true;
+                    break;
                 }
                 Ok(IoEvent::Error(error)) => {
                     self.set_status(error);
                     finished = true;
+                    break;
                 }
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {
@@ -690,6 +697,10 @@ impl SlideApp {
 
     fn run_ui(&mut self, id: &str, p: &Value) -> Result<Value, String> {
         match id {
+            "view.fontInspector" => {
+                self.font_inspector.open = true;
+                self.font_inspector.refresh = true;
+            }
             "app.language" => {
                 let code = p.get("language").and_then(Value::as_str).ok_or("missing `language`")?;
                 self.ui.language = i18n::Language::from_code(code).ok_or("unsupported interface language")?;
@@ -1277,6 +1288,7 @@ impl SlideApp {
         toast::note_missing_fonts(self);
         toast::show(self, &ctx);
         dialogs::show(self, &ctx);
+        font_inspector::show(self, &ctx);
         menus::palette(self, &ctx);
         for url in std::mem::take(&mut self.pending_urls) {
             ctx.open_url(egui::OpenUrl::new_tab(url));

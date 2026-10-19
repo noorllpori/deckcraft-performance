@@ -262,6 +262,25 @@ pub fn import(bytes: &[u8]) -> Result<Presentation, PptxError> {
     p.masters.clear();
     p.media.clear();
     p.default_text_style = Default::default();
+    p.auto_embed_fonts = !matches!(pres_el.attr("embedTrueTypeFonts"), Some("0" | "false"));
+
+    if let Some(list) = pres_el.child("embeddedFontLst") {
+        for entry in list.children_named("embeddedFont").take(512) {
+            let Some(family) = entry.child("font").and_then(|f| f.attr("typeface")).filter(|f| !f.is_empty()) else { continue };
+            for (tag, style) in [("regular", "Regular"), ("bold", "Bold"), ("italic", "Italic"), ("boldItalic", "Bold Italic")] {
+                let Some(rel) = entry.child(tag).and_then(|e| e.attr("r:id")).and_then(|id| pres_part.rels.get(id)) else { continue };
+                if rel.external || rel.kind != "font" {
+                    continue;
+                }
+                if pkg.get(&rel.target).is_none_or(|b| b.len() > deckcraft_fonts::embedding::MAX_FONT_BYTES + (1 << 20)) {
+                    continue;
+                }
+                if let Some(media) = imp.media_for(&rel.target) {
+                    p.embedded_font_faces.push(deckcraft_model::EmbeddedFont { family: family.into(), style: style.into(), media });
+                }
+            }
+        }
+    }
 
     if let Some(sz) = pres_el.child("sldSz") {
         let w = sz.i64("cx").map(emu_to_pt).unwrap_or(960.0);

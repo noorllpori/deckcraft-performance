@@ -261,16 +261,7 @@ impl Textures {
                 ..Default::default()
             };
             let (image, drawn) = deckcraft_render::render_slide_drawn(p, index, &opts);
-            self.commit_canvas(
-                ctx,
-                key,
-                slide,
-                master,
-                want,
-                RenderedCanvas { image, drawn, elapsed_ms: crate::now_ms() - t0 },
-                grayscale,
-                index,
-            );
+            self.commit_canvas(ctx, key, slide, master, want, RenderedCanvas { image, drawn, elapsed_ms: crate::now_ms() - t0 }, grayscale, index);
             return self.canvas.as_ref().map(|e| (e.tex.clone(), e.region));
         }
         if self.performance_mode {

@@ -63,6 +63,10 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
 }
 
 fn multifunction(app: &mut SlideApp, ui: &mut Ui) {
+    if inspector_action(ui, "Font Inspector…").clicked() {
+        run(app, "view.fontInspector", json!({}));
+    }
+    ui.add_space(4.0);
     // Keep the most useful inspection workflow visible as soon as this pane opens: the object
     // list stays on top and the properties of the current selection sit directly underneath it.
     ui.label(egui::RichText::new(crate::i18n::tr(ui.ctx(), "Selection Pane")).font(theme::bold(13.0)));

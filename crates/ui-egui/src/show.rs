@@ -222,7 +222,9 @@ fn playback_size(srect: Rect, ppp: f32) -> (u32, u32) {
     let h = (srect.height() * ppp).round().max(1.0) as u32;
     let area = u64::from(w).saturating_mul(u64::from(h));
     let side = w.max(h);
-    if area <= MAX_PIXELS && side <= MAX_SIDE { return (w, h); }
+    if area <= MAX_PIXELS && side <= MAX_SIDE {
+        return (w, h);
+    }
     let a = (MAX_PIXELS as f64 / area.max(1) as f64).sqrt();
     let s = MAX_SIDE as f64 / side.max(1) as f64;
     let k = a.min(s).min(1.0);
@@ -450,7 +452,9 @@ pub fn ui(app: &mut SlideApp, ui: &mut Ui) {
         let key = Key { slide: idx, step, size, doc: std::sync::Arc::as_ptr(&doc) as usize, hidden: hidden.clone(), gif };
         let cached = if !app.playback_cache.has_live_media(idx) && gifs.is_empty() && hidden.is_empty() {
             app.playback_cache.texture(&ctx, idx, step, t, animating)
-        } else { None };
+        } else {
+            None
+        };
         let anim_frame = (idx, step);
         let render_anim = !animating || show.tex.is_none() || show.last_anim_frame != Some(anim_frame) || now - show.last_anim_render >= (1.0 / 30.0);
         let tex = if let Some(cached) = cached {
@@ -729,7 +733,8 @@ pub fn ui(app: &mut SlideApp, ui: &mut Ui) {
     if show.presenter && !show.reading && !show.ended {
         if let Some(next) = deckcraft_anim::show_order(&doc).into_iter().find(|i| *i > show.state.slide)
             && show.next_tex.as_ref().is_none_or(|(i, _)| *i != next)
-            && let Some(tex) = app.playback_cache.texture(&ctx, next, 0, 0.0, false) {
+            && let Some(tex) = app.playback_cache.texture(&ctx, next, 0, 0.0, false)
+        {
             show.next_tex = Some((next, tex));
         }
         presenter_window(&ctx, &mut show, &doc, now, &mut keep);

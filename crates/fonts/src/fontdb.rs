@@ -116,6 +116,8 @@ pub struct FontFace {
     /// the typographic one: "Segoe UI Semibold" / "Regular" for Segoe UI Semibold. Documents name
     /// fonts this way.
     pub legacy: Option<(String, String)>,
+    /// Localized family names such as 微软雅黑 and 等线, paired with their English style.
+    aliases: Vec<(String, String)>,
     /// usWeightClass-style weight (400 = regular).
     pub weight: f32,
     pub italic: bool,
@@ -388,6 +390,22 @@ fn legacy_names(f: &skrifa::FontRef<'_>, family: &str) -> Option<(String, String
     Some((legacy, name(f, &[StringId::SUBFAMILY_NAME]).unwrap_or_else(|| "Regular".into())))
 }
 
+fn localized_names(f: &skrifa::FontRef<'_>) -> Vec<(String, String)> {
+    let mut aliases = Vec::new();
+    for (family_id, style_id) in
+        [(StringId::FAMILY_NAME, StringId::SUBFAMILY_NAME), (StringId::TYPOGRAPHIC_FAMILY_NAME, StringId::TYPOGRAPHIC_SUBFAMILY_NAME)]
+    {
+        let style = name(f, &[style_id]).unwrap_or_else(|| "Regular".into());
+        for family in f.localized_strings(family_id) {
+            let pair = (family.to_string(), style.clone());
+            if !pair.0.trim().is_empty() && !aliases.contains(&pair) {
+                aliases.push(pair);
+            }
+        }
+    }
+    aliases
+}
+
 /// (family, style) of every face in the font file at `path`, reading only its table directories
 /// and `name` tables: a scan opens hundreds of font files, many of them megabytes long. A
 /// variable font is cataloged under its default style; its named instances appear once it loads.
@@ -438,7 +456,7 @@ fn file_face_names(path: &std::path::Path) -> Vec<(String, String)> {
             let (family, style) = face_names(&f)?;
             // Cataloged under its Windows family too, so "Segoe UI Semibold" finds the file.
             let legacy = legacy_names(&f, &family);
-            Some(std::iter::once((family, style)).chain(legacy))
+            Some(std::iter::once((family, style)).chain(legacy).chain(localized_names(&f)))
         })
         .flatten()
         .collect()
@@ -579,11 +597,13 @@ fn make_face(bytes: FontBytes, index: u32, family: String, style: String, coords
         .or(axis(b"slnt").map(|v| v.abs() > 0.1))
         .unwrap_or(!matches!(a.style, skrifa::attribute::Style::Normal) || style_italic(&style));
     let legacy = if coords.is_empty() { legacy_names(&f, &family) } else { None };
+    let aliases = localized_names(&f);
     Some(FontFace {
         id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
         family,
         style,
         legacy,
+        aliases,
         weight,
         italic,
         upem: m.units_per_em.max(1) as f64,
@@ -890,6 +910,30 @@ impl FontDb {
         self.face(MISSING_FONT_FAMILY, style)
     }
 
+    /// Resolve a document font without installing it into the process-wide font catalogue.
+    /// Keeping the source Arc in the cache prevents pointer reuse and cross-document leakage.
+    pub fn embedded_data(&self, data: &Arc<Vec<u8>>, family: &str, style: &str) -> Option<Arc<FontFace>> {
+        type Cache = HashMap<(usize, String, String), (Arc<Vec<u8>>, Arc<FontFace>)>;
+        static CACHE: std::sync::OnceLock<Mutex<Cache>> = std::sync::OnceLock::new();
+        let key = (Arc::as_ptr(data) as usize, family.to_lowercase(), style.to_lowercase());
+        let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        if let Some((_, f)) = cache.lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
+            return Some(f.clone());
+        }
+        let raw = crate::embedding::sfnt(data)?;
+        let faces = enumerate_faces(raw);
+        let (index, actual_family, actual_style, coords) =
+            faces.iter().find(|(_, fam, st, _)| fam.eq_ignore_ascii_case(family) && norm(st) == norm(style)).or_else(|| faces.first())?.clone();
+        let face = Arc::new(make_face(FontBytes::Owned(Arc::new(raw.to_vec())), index, actual_family, actual_style, coords)?);
+        let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+        let bytes: usize = cache.values().map(|(source, face)| source.len().saturating_add(face.data().len())).sum();
+        if cache.len() >= 256 || bytes.saturating_add(data.len()).saturating_add(face.data().len()) > 128 << 20 {
+            cache.clear();
+        }
+        cache.insert(key, (data.clone(), face.clone()));
+        Some(face)
+    }
+
     fn try_family(&self, family: &str, style: &str) -> Option<Arc<FontFace>> {
         // Every installed file of the family first, so the best style is among the candidates. The
         // lock is held while the files load, so another thread looking up the family waits for
@@ -919,9 +963,7 @@ impl FontDb {
     }
 
     pub(crate) fn is_loaded(&self, family: &str) -> bool {
-        self.read_faces()
-            .iter()
-            .any(|f| f.family.eq_ignore_ascii_case(family) || f.legacy.as_ref().is_some_and(|(lf, _)| lf.eq_ignore_ascii_case(family)))
+        self.read_faces().iter().any(|f| f.family.eq_ignore_ascii_case(family) || f.aliases.iter().any(|(lf, _)| lf.eq_ignore_ascii_case(family)))
     }
 
     /// A variable font's axes: (tag, name, min, default, max), empty for static fonts.
@@ -991,6 +1033,12 @@ impl FontDb {
                 .iter()
                 .find(|f| f.legacy.as_ref().is_some_and(|(_, ls)| norm(ls) == norm(if style_italic(style) { "Italic" } else { "Regular" })))
             {
+                return Some((*f).clone());
+            }
+        }
+        if cands.is_empty() {
+            cands = faces.iter().filter(|f| f.aliases.iter().any(|(a, _)| a.eq_ignore_ascii_case(family))).collect();
+            if let Some(f) = cands.iter().find(|f| f.aliases.iter().any(|(a, s)| a.eq_ignore_ascii_case(family) && norm(s) == ns)) {
                 return Some((*f).clone());
             }
         }

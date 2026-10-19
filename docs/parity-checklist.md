@@ -162,7 +162,7 @@ Open P0 items: Contextual tabs (Shape Format, Picture Format, Table Design/Layou
 | Text | Hyperlinks (URL, slide, email) | P1 | D |
 | Text | Date/time and slide number fields | P1 | D |
 | Text | Right-to-left and complex scripts | P1 | P |
-| Text | East Asian text (CJK fonts, line breaking) | P1 | P |
+| Text | East Asian text (CJK fonts, line breaking; performance branch fixes localized font names and adds [font inspector / embedding](font-embedding.md), 2026-10-18; score remains partial) | P1 | P |
 | Tables | Insert table (grid picker, dialog) | P0 | D |
 | Tables | Draw table | P2 | M |
 | Tables | Table styles and style options | P0 | D |
@@ -178,7 +178,7 @@ Open P0 items: Contextual tabs (Shape Format, Picture Format, Table Design/Layou
 | Charts | Chart styles and colours | P2 | P |
 | SmartArt | Insert SmartArt (lists, processes, cycles, hierarchy) | P1 | P |
 | SmartArt | Text pane and layout switching | P2 | M |
-| Pictures | Insert picture (PNG, JPEG, GIF, WebP, BMP, TIFF; performance edition adds limited [PSD merged previews](psd-linked-pictures.md), 2026-10-17, user validation pending; existing score retained) | P0 | D |
+| Pictures | Insert picture (PNG, JPEG, GIF, WebP, BMP, TIFF; performance edition adds limited [PSD merged previews](psd-linked-pictures.md) and [portable PPTX export](pptx-compatibility.md), 0.6.3-performance.1, 2026-10-19; partial local validation; existing score retained) | P0 | D |
 | Pictures | SVG pictures | P1 | M |
 | Pictures | Crop (and crop to shape, aspect ratio) | P0 | P |
 | Pictures | Corrections, colour, transparency | P1 | P |

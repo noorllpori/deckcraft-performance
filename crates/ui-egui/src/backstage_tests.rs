@@ -32,6 +32,18 @@ fn new_app() -> SlideApp {
     SlideApp::new(Session::with_new(), Services::default())
 }
 
+/// File operations now run on a worker; frame count alone cannot establish completion.
+fn finish_file_operation(h: &mut Harness<'_, SlideApp>) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    h.run_steps(3);
+    while h.state().io_job.is_some() {
+        assert!(std::time::Instant::now() < deadline, "background file operation timed out");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        h.run_steps(1);
+    }
+    h.run_steps(3);
+}
+
 /// A folder of its own for one test's files.
 fn temp_dir(name: &str) -> std::path::PathBuf {
     let d = std::env::temp_dir().join(format!("deckcraft-backstage-{}-{name}", std::process::id()));
@@ -217,7 +229,7 @@ fn open_lists_recent_files_and_opens_one() {
     h.run_steps(2);
     assert!(h.query_by_label("Other.pptx").is_none(), "the search box filters by name");
     h.get_by_label("Quarterly review.pptx").click();
-    h.run_steps(3);
+    finish_file_operation(&mut h);
     assert_eq!(h.state().session.documents().len(), 2);
     assert_eq!(h.state().session.active().unwrap().path.as_deref(), Some(path.as_str()));
     assert!(h.state().backstage.is_none(), "the opened presentation shows");
@@ -241,7 +253,7 @@ fn save_as_and_export_run_the_file_commands() {
     h.run_steps(3);
     assert_eq!(page(&h), Some(Page::SaveAs));
     click_on_page(&h, "Save");
-    h.run_steps(3);
+    finish_file_operation(&mut h);
     let pptx = dir.join(format!("{title}.pptx")).to_string_lossy().to_string();
     assert!(std::path::Path::new(&pptx).is_file(), "saved as PowerPoint by default");
     assert_eq!(h.state().session.active().unwrap().path.as_deref(), Some(pptx.as_str()));
@@ -271,7 +283,7 @@ fn save_as_and_export_run_the_file_commands() {
     h.state_mut().run("app.backstage", json!({})).unwrap();
     h.run_steps(3);
     click_nav(&h, "Save");
-    h.run_steps(3);
+    finish_file_operation(&mut h);
     assert!(!h.state().session.active().unwrap().is_dirty());
     assert!(h.state().backstage.is_none());
     assert_eq!(asked.borrow().len(), 3, "no Save dialog for a presentation with a file");

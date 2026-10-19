@@ -2,6 +2,10 @@
 
 **Stage: alpha** · next: beta, ~20 points and ~120–210 h away
 
+Performance branch progress (2026-10-19, 0.6.3-performance.1): [font inspector and document embedding](docs/font-embedding.md),
+searchable font list with click-to-slide navigation, localized font-family lookup, TrueType/TTC packaging and document-scoped EOT rendering implemented.
+Format round-trip tests and local Chinese typography comparison passed; cross-machine Office/WPS validation remains partial.
+
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-14 · **Change:** major (expanded Simplified Chinese interface; user review pending and previous estimates retained) · **Target:** Microsoft PowerPoint for Mac 16.113 (Microsoft 365)
 
 DeckCraft aims at full PowerPoint parity, and to be better: faster, open (a documented zip+JSON
@@ -173,6 +177,7 @@ Scope and remaining limitations: [PSD linked pictures](docs/psd-linked-pictures.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-18 | minor | Performance branch, unreleased: portable PNG conversion for PSD, embedded linked pictures and visible notices; PowerPoint spot checks exposed EMF rasterisation differences, fixed by retaining vectors; preview font differences and full Office/WPS review remain open |
 | 2026-10-14 | major | Expanded Simplified Chinese preview; user review pending; localization coverage and effort estimates not re-measured |
 | 2026-10-13 | trivial | Progress log: wild text cases |
 | 2026-10-12 | trivial | Progress log: File tab (Backstage, #76) |

@@ -95,7 +95,12 @@ pub fn fill(w: &mut W, x: &mut Exp, o: &mut Out, f: &Fill) {
 
 /// `a:blipFill` / `p:blipFill`.
 pub fn blip_fill(w: &mut W, x: &mut Exp, o: &mut Out, tag: &str, pf: &PictureFill) {
-    let rid = x.media_rel(o, pf.media, "image").unwrap_or_else(|| x.placeholder_rel(o));
+    let image = x.media_rel(o, pf.media, "image");
+    let missing = image.is_none();
+    let rid = image.unwrap_or_else(|| x.placeholder_rel(o));
+    // Cropping, transparency and recolouring must not hide or distort a failure notice.
+    let fallback = PictureFill::default();
+    let pf = if missing { &fallback } else { pf };
     w.open(tag, A::new().a("rotWithShape", if pf.upright { "0" } else { "1" }));
     let adj = &pf.adjust;
     let has_kids = pf.alpha.is_some()
@@ -106,7 +111,7 @@ pub fn blip_fill(w: &mut W, x: &mut Exp, o: &mut Out, tag: &str, pf: &PictureFil
         || adj.clear_color.is_some()
         || adj.bilevel.is_some()
         || adj.alpha_inv;
-    let a = if x.media_is_external(pf.media) { A::new().a("r:link", &rid) } else { A::new().a("r:embed", &rid) };
+    let a = A::new().a("r:embed", &rid);
     if has_kids {
         w.open("a:blip", a);
         if let Some(c) = adj.clear_color {
@@ -524,7 +529,7 @@ pub fn ppr(w: &mut W, x: &mut Exp, o: &mut Out, tag: &str, level: Option<u8>, p:
                 w.empty("a:blip", A::new().a("r:embed", rid));
                 w.close("a:buBlip");
             }
-            None => w.empty("a:buChar", A::new().a("char", "•")),
+            None => w.empty("a:buChar", A::new().a("char", "⚠")),
         },
         None => {}
     }

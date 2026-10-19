@@ -29,13 +29,17 @@ presentation and removes the link. Extract writes the original PSD bytes, not a 
 
 Native `.deckcraft` saves links without embedding their bytes, and reloads the source on open.
 Moving/deleting the source breaks the link; there is no portable fallback or relink UI yet.
-PPTX retains the PSD link/original media for this fork. Other presentation applications may
-not render PSD media; a PNG compatibility fallback is not implemented. For portable exchange,
-use a PNG image instead. This is PSD picture support, not a PSD document/layer editor.
+The 0.6.3-performance.1 compatibility update embeds supported PSD merged images as PNG when exporting
+PPTX, and packages linked pictures from their last accepted in-memory bytes. Refresh before
+export if source changes should be included. Missing/undecodable pictures show a visible notice.
+The live/native document retains its original PSD and link; reopening the exported PPTX yields
+portable images without the PSD source relationship. See [PPTX compatibility](pptx-compatibility.md).
+This is PSD picture support, not a PSD document/layer editor.
 
 ## Revision history
 
 | Date | Change |
 |---|---|
+| 2026-10-18 | Unreleased: portable PNG export for PSD and visible unsupported/missing-content notices; cross-application validation pending. |
 | 2026-10-17 | Added merged PSD decoding, local link defaults, and refresh cache invalidation. |
 | 2026-10-18 | Added persisted SHA-256 and background refresh when selecting or re-clicking linked pictures. Build verification only; user validation pending. |

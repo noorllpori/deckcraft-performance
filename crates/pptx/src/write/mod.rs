@@ -1,7 +1,9 @@
 //! PPTX export: [`Presentation`] → package.
 
 mod chart;
+mod compat;
 pub(crate) mod dml;
+mod fonts;
 mod shapes;
 mod theme;
 mod timing;
@@ -40,12 +42,14 @@ pub struct Exp<'a> {
     pub p: &'a Presentation,
     pub pkg: PackageOut,
     media_parts: HashMap<MediaId, String>,
+    image_parts: HashMap<MediaId, Option<String>>,
     n_image: u32,
     n_media: u32,
     n_chart: u32,
     pub slide_parts: HashMap<SlideId, String>,
     pub table_styles: Vec<String>,
     placeholder: Option<String>,
+    transparent: Option<String>,
 }
 
 /// A part being written: its name and relationships.
@@ -101,6 +105,27 @@ fn ext_for(content_type: &str, name: &str, data: &[u8]) -> String {
 }
 
 impl Exp<'_> {
+    /// A failed image is cached too, so repeated fills do not repeatedly decode it.
+    fn image_part(&mut self, id: MediaId) -> Option<String> {
+        if let Some(part) = self.image_parts.get(&id) {
+            return part.clone();
+        }
+        let result = self.p.media(id).ok_or("图片数据缺失").and_then(compat::picture);
+        let part = match result {
+            Ok(pic) => {
+                self.n_image += 1;
+                let name = format!("ppt/media/image{}.{}", self.n_image, pic.ext);
+                self.pkg.binary(&name, pic.mime, pic.bytes.as_ref().clone());
+                Some(name)
+            }
+            Err(reason) => {
+                log::warn!("pptx: image {} replaced by compatibility notice: {reason}", id.0);
+                None
+            }
+        };
+        self.image_parts.insert(id, part.clone());
+        part
+    }
     fn media_part(&mut self, id: MediaId) -> Option<String> {
         if let Some(p) = self.media_parts.get(&id) {
             return Some(p.clone());
@@ -128,15 +153,16 @@ impl Exp<'_> {
     }
     /// A relationship from `o` to a media item (embedded part, or external link).
     pub fn media_rel(&mut self, o: &mut Out, id: MediaId, kind: &str) -> Option<String> {
+        if kind == "image" {
+            let part = self.image_part(id)?;
+            return Some(o.rels.add(kind, &opc::relative(&o.name, &part), false));
+        }
         let m = self.p.media(id)?;
         if let Some(link) = m.link.clone() {
             return Some(o.rels.add(kind, &link, true));
         }
         let part = self.media_part(id)?;
         Some(o.rels.add(kind, &opc::relative(&o.name, &part), false))
-    }
-    pub fn media_is_external(&self, id: MediaId) -> bool {
-        self.p.media(id).is_some_and(|m| m.link.is_some())
     }
     pub fn media_rel_new(&mut self, o: &mut Out, id: MediaId, kind: &str) -> Option<String> {
         let m = self.p.media(id)?;
@@ -146,17 +172,31 @@ impl Exp<'_> {
         let part = self.media_part(id)?;
         Some(o.rels.add(kind, &opc::relative(&o.name, &part), false))
     }
-    /// A tiny transparent PNG for pictures whose image is missing.
+    /// A visible, self-contained notice for missing or unsupported picture content.
     pub fn placeholder_rel(&mut self, o: &mut Out) -> String {
         let part = match &self.placeholder {
             Some(p) => p.clone(),
             None => {
                 self.n_image += 1;
                 let name = format!("ppt/media/image{}.png", self.n_image);
-                self.pkg.binary(&name, "image/png", crate::png::transparent_1x1());
+                let png = deckcraft_render::compatibility_notice_image("格式不支持、文件缺失或损坏\nUnsupported / missing content").to_png();
+                self.pkg.binary(&name, "image/png", png);
                 self.placeholder = Some(name.clone());
                 name
             }
+        };
+        o.rels.add("image", &opc::relative(&o.name, &part), false)
+    }
+    /// An absent media poster is optional, not a broken image.
+    pub fn transparent_rel(&mut self, o: &mut Out) -> String {
+        let part = if let Some(part) = &self.transparent {
+            part.clone()
+        } else {
+            self.n_image += 1;
+            let name = format!("ppt/media/image{}.png", self.n_image);
+            self.pkg.binary(&name, "image/png", crate::png::transparent_1x1());
+            self.transparent = Some(name.clone());
+            name
         };
         o.rels.add("image", &opc::relative(&o.name, &part), false)
     }
@@ -378,18 +418,22 @@ fn sanitized(p: &Presentation) -> std::borrow::Cow<'_, Presentation> {
 }
 
 pub fn export(p: &Presentation) -> Result<Vec<u8>, PptxError> {
+    let prepared = deckcraft_text::document::prepare(p);
+    let p = &prepared;
     let p = sanitized(p);
     let p: &Presentation = &p;
     let mut x = Exp {
         p,
         pkg: PackageOut::default(),
         media_parts: HashMap::new(),
+        image_parts: HashMap::new(),
         n_image: 0,
         n_media: 0,
         n_chart: 0,
         slide_parts: HashMap::new(),
         table_styles: vec![],
         placeholder: None,
+        transparent: None,
     };
     for (i, s) in p.slides.iter().enumerate() {
         x.slide_parts.insert(s.id, format!("ppt/slides/slide{}.xml", i + 1));
@@ -671,7 +715,11 @@ fn presentation_xml(x: &mut Exp, o: &mut Out, masters: &[(u64, String)], notes: 
     let p = x.p;
     let mut w = W::new();
     let first = (p.first_slide_number != 1).then_some(p.first_slide_number.min(9999));
-    root_open(&mut w, "p:presentation", A::new().a("saveSubsetFonts", 1).o("firstSlideNum", first));
+    root_open(
+        &mut w,
+        "p:presentation",
+        A::new().a("saveSubsetFonts", 0).a("embedTrueTypeFonts", u8::from(p.auto_embed_fonts)).o("firstSlideNum", first),
+    );
     w.open0("p:sldMasterIdLst");
     for (id, rid) in masters {
         w.empty("p:sldMasterId", A::new().a("id", id).a("r:id", rid));
@@ -692,6 +740,7 @@ fn presentation_xml(x: &mut Exp, o: &mut Out, masters: &[(u64, String)], notes: 
     let clamp = |v: f64| dml::emu(v).clamp(914_400, 51_206_400);
     w.empty("p:sldSz", A::new().a("cx", clamp(p.slide_size.width)).a("cy", clamp(p.slide_size.height)));
     w.empty("p:notesSz", A::new().a("cx", dml::emu_pos(p.notes_size.width).max(1)).a("cy", dml::emu_pos(p.notes_size.height).max(1)));
+    fonts::write(&mut w, x, o);
     if !p.custom_shows.is_empty() {
         w.open0("p:custShowLst");
         for (i, cs) in p.custom_shows.iter().enumerate() {

@@ -1,10 +1,10 @@
 <h1 align="center">DeckCraft 性能版 · Performance Edition</h1>
 
-## DeckCraft 性能版 0.6.2-performance.1
+## DeckCraft 性能版 0.6.3-performance.1
 
 这是基于 [Storytold DeckCraft](https://github.com/storytold/deckcraft) 的独立性能增强分支，由 [葡萄拌大蒜（@noorllpori）](https://github.com/noorllpori) 维护。它不是上游官方发行版，也不要求将性能版功能合入上游主线。
 
-**长期维护分支：[`performance`](https://github.com/noorllpori/deckcraft/tree/performance)** · **当前版本：`0.6.2-performance.1`** · **主要面向 Windows 桌面端，仍在迭代。**
+**长期维护分支：[`performance`](https://github.com/noorllpori/deckcraft/tree/performance)** · **当前版本：`0.6.3-performance.1`** · **主要面向 Windows 桌面端，仍在迭代。**
 
 | 目前可用 | 作用与边界 |
 |---|---|
@@ -14,6 +14,8 @@
 | Multi-Function | 选择列表、元素属性、图片来源、链接刷新、打包／解包集中在一个面板 |
 | PSD 链接 | 本地 PSD 默认外链，显示合成画面；不是 PSD 图层编辑器 |
 | 点击自动刷新 | SHA-256 比对源文件，内容变化才后台更新；不是持续监视磁盘 |
+| 字体检查与打包 | 搜索字体、缺失提示、点击页码跳转；保存允许编辑嵌入的字体 |
+| PPTX 图片兼容 | PSD/WebP 等转内嵌 PNG，缺失内容显示提示；Office/WPS 兼容仍有边界 |
 | 画布导航与中文 | 中键平移、编辑区中心缩放、简体中文界面 |
 
 **性能改善的重点是减少重复渲染、降低拖动时的像素工作量，以及把耗时准备移到后台。尚未完成同硬件、同文件的性能基准测试，因此不宣称“快几倍”或固定帧率。**

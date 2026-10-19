@@ -1,5 +1,11 @@
 # File-format parity with PowerPoint
 
+Performance branch update (2026-10-19, 0.6.3-performance.1): PPTX image export now embeds linked pictures,
+converts supported PSD/other decoded formats to PNG, and shows notices for missing or unsupported
+content. Windows build plus local PowerPoint spot checks (three pages of one real deck and one
+synthetic picture fixture); no full regression or WPS verification, and no new parity score is claimed.
+See [compatibility behavior and limits](pptx-compatibility.md). The upstream assessment below is historical.
+
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** trivial (Groups with a small legacy child coordinate space draw outlines, dashes, arrowheads and ink at their own width (#233); previously major: created; formats taken from PowerPoint 16.113.4's Info.plist, PPTX coverage measured from `crates/pptx`) · **Target:** Microsoft PowerPoint for Mac 16.113 (Microsoft 365)
 
 Every format PowerPoint reads or writes, DeckCraft's support, fidelity and how it is tested.
@@ -48,7 +54,7 @@ PowerPoint opens and saves; Viewer = opens only).
 | Online video (YouTube embeds) | yes | no | Cloud feature |
 | Embedded OLE objects | yes | kept on round trip (opaque), not insertable or editable | `ShapeKind::Opaque` |
 | 3-D models (`.glb`) | yes | no | |
-| Embedded fonts | yes | no | `p:embeddedFontLst` ignored |
+| Embedded fonts | yes | partial | Style-aware native/PPTX storage; editable static TrueType and TTC faces embedded as EOT; other variants retained with inspector warnings |
 
 ## PPTX coverage (PresentationML / DrawingML)
 
@@ -84,7 +90,7 @@ the round trip even though DeckCraft doesn't model it.
 | Comments: modern threaded (`p188`) | yes | no (written as legacy) | Replies and resolved state lost (#70) |
 | Unknown slide-level elements (`graphicFrame` OLE, extensions, `mc:AlternateContent`) | kept | kept | Rendered as a labelled placeholder with the preview picture when present |
 | Tags, custom XML, VBA | no / no / no | | |
-| Embedded fonts | no | no | |
+| Embedded fonts | partial | partial | Uncompressed EOT read/rendered per document; font parts preserved; permitted static TrueType auto-embedded. See [font support](font-embedding.md) |
 | Encryption (password to open) | no | no | |
 
 ### What would move the PPTX number

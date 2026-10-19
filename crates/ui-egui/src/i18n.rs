@@ -152,6 +152,7 @@ mod tests {
         }
         assert_eq!(Language::English.translate("File"), "File");
         assert_eq!(Language::SimplifiedChinese.translate("File"), "文件");
+        assert_eq!(Language::SimplifiedChinese.translate("Font Inspector…"), "字体检查器…");
         assert_eq!(Language::SimplifiedChinese.translate("Not translated yet"), "Not translated yet");
         assert_eq!(Language::from_code("fr"), None);
     }

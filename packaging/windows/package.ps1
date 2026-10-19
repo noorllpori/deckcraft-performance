@@ -84,9 +84,20 @@ foreach ($check in @(@('deckcraft.exe', 2), @('deckcraft-cli.exe', 3))) {
   Write-Output "ok $($check[0]): $Arch, PE subsystem $($h.Subsystem)"
 }
 $Stage = Join-Path $TargetDir "windows-package\$Arch"
-Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
+function Remove-PackageDirectory([string] $Path) {
+  $packageRoot = [IO.Path]::GetFullPath((Join-Path $TargetDir 'windows-package')).TrimEnd('\') + '\'
+  $resolved = [IO.Path]::GetFullPath($Path)
+  if (-not $resolved.StartsWith($packageRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Refusing to remove path outside package staging: $resolved"
+  }
+  if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
+}
+Remove-PackageDirectory $Stage
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 Copy-Item (Join-Path $Bin 'deckcraft.exe'), (Join-Path $Bin 'deckcraft-cli.exe') $Stage
+foreach ($f in 'LICENSE-MIT', 'LICENSE-APACHE', 'NOTICE', 'ATTRIBUTION.md', 'PERFORMANCE_EDITION.md') {
+  Copy-Item -LiteralPath (Join-Path $Root $f) -Destination $Stage
+}
 
 & (Join-Path $PSScriptRoot 'sign.ps1') (Join-Path $Stage 'deckcraft.exe') (Join-Path $Stage 'deckcraft-cli.exe')
 
@@ -103,9 +114,9 @@ Remove-Item -Force -ErrorAction SilentlyContinue ([IO.Path]::ChangeExtension($Ms
 
 # ---- portable zip ------------------------------------------------------------------------------
 $Portable = Join-Path $TargetDir "windows-package\deckcraft-performance-$Version-windows-$Arch-portable"
-Remove-Item -Recurse -Force $Portable -ErrorAction SilentlyContinue
+Remove-PackageDirectory $Portable
 New-Item -ItemType Directory -Force -Path $Portable | Out-Null
-Copy-Item (Join-Path $Stage '*.exe') $Portable
+Copy-Item (Join-Path $Stage '*') $Portable
 foreach ($f in 'README.md', 'LICENSE', 'LICENSE-MIT', 'LICENSE-APACHE') {
   $p = Join-Path $Root $f
   if (Test-Path $p) { Copy-Item $p $Portable }

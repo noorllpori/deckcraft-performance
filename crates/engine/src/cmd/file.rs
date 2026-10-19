@@ -8,6 +8,8 @@ use crate::{DocState, EngineError, Result, Session};
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
+        cmd!(query "file.fonts", "Font Inspector", [], None, "{} -> font usage and embedding status", has_doc, inspect_fonts),
+        cmd!("file.fontEmbedding", "Embed editable fonts on save", [], None, "{enabled: bool}", has_doc, font_embedding),
         cmd!(noundo "file.new", "New Presentation", ["File"], Some("Cmd+N"), "{theme?: name, size?: [w,h] pt, blank?: bool}", always, new),
         cmd!(noundo "file.open", "Open…", ["File"], Some("Cmd+O"), "{path}", always, open),
         cmd!(noundo "file.openBytes", "Open Data", [], None, "{name, data: base64}", always, open_bytes),
@@ -43,6 +45,24 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(noundo "file.revert", "Revert", [], None, "{}", has_doc, revert),
         cmd!(noundo "window.next", "Next Window", ["Window"], Some("Cmd+`"), "{index?}", has_doc, next_window),
     ]
+}
+
+fn font_embedding(s: &mut Session, p: &Value) -> Result<Value> {
+    let enabled = p.get("enabled").and_then(Value::as_bool).ok_or_else(|| bad("file.fontEmbedding", "missing enabled"))?;
+    s.edit(|doc, _| {
+        doc.auto_embed_fonts = enabled;
+        Ok(())
+    })?;
+    Ok(json!({"enabled": enabled}))
+}
+
+fn inspect_fonts(s: &mut Session, _: &Value) -> Result<Value> {
+    let rows: Vec<_> = deckcraft_text::document::inspect(&s.doc()?.doc).into_iter().map(|f| json!({
+        "family": f.family, "style": f.style, "pages": f.pages, "available": f.available,
+        "embedded": f.embedded, "storedUnreadable": f.stored_unreadable, "permission": format!("{:?}", f.permission), "resolvedFace": f.replacement,
+        "missingGlyphs": f.missing_chars, "simulatedStyle": f.style_substituted
+    })).collect();
+    Ok(json!(rows))
 }
 
 fn theme_named(name: &str) -> Option<deckcraft_model::Theme> {
@@ -123,7 +143,7 @@ pub fn save_bytes(doc: &Presentation, format: &str) -> Result<Vec<u8>> {
         "pptx" | "potx" | "ppsx" => deckcraft_pptx::export(doc).map_err(|e| EngineError::Other(e.to_string())),
         "outline" | "txt" => Ok(deckcraft_format::slides_to_outline(doc).into_bytes()),
         "pdf" => deckcraft_pdf::export(doc, &Default::default()).map_err(|e| EngineError::Other(e.to_string())),
-        _ => deckcraft_format::save(doc).map_err(|e| EngineError::Other(e.to_string())),
+        _ => deckcraft_format::save(&deckcraft_text::document::prepare(doc)).map_err(|e| EngineError::Other(e.to_string())),
     }
 }
 

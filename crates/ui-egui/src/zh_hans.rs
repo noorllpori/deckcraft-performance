@@ -579,6 +579,7 @@ pub const ZH_HANS: &[(&str, &str)] = &[
     ("Followed Hyperlink", "已访问的超链接"),
     ("Font", "字体"),
     ("Font Color", "字体颜色"),
+    ("Font Inspector…", "字体检查器…"),
     ("Font Size", "字号"),
     ("Fonts", "字体"),
     ("Footer", "页脚"),

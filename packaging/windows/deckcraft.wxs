@@ -75,6 +75,21 @@
       <Component Id="DeckcraftCli">
         <File Id="DeckcraftCliExe" Source="$(var.BinDir)\deckcraft-cli.exe" KeyPath="yes" />
       </Component>
+      <Component Id="DeckcraftLicenseMit">
+        <File Source="$(var.BinDir)\LICENSE-MIT" KeyPath="yes" />
+      </Component>
+      <Component Id="DeckcraftLicenseApache">
+        <File Source="$(var.BinDir)\LICENSE-APACHE" KeyPath="yes" />
+      </Component>
+      <Component Id="DeckcraftNotice">
+        <File Source="$(var.BinDir)\NOTICE" KeyPath="yes" />
+      </Component>
+      <Component Id="DeckcraftAttribution">
+        <File Source="$(var.BinDir)\ATTRIBUTION.md" KeyPath="yes" />
+      </Component>
+      <Component Id="DeckcraftPerformanceCredits">
+        <File Source="$(var.BinDir)\PERFORMANCE_EDITION.md" KeyPath="yes" />
+      </Component>
     </ComponentGroup>
   </Fragment>
 </Wix>

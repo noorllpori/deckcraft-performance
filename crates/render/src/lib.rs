@@ -18,6 +18,7 @@ mod images;
 mod metafile;
 mod morph_path;
 mod morph_text;
+mod notice;
 mod paint;
 mod pattern;
 
@@ -50,6 +51,7 @@ pub use extent::{Region, TILE, layout_extent, pasteboard_region, slide_extent};
 pub use images::{decode as decode_image, gif_frame, natural_size as image_natural_size};
 pub use morph_path::PathMorph;
 pub use morph_text::TextMorph;
+pub use notice::{compatibility_notice_image, compatibility_notice_shape};
 pub use placed::{Placed, PlacedLink, PlacedText, place_slide};
 pub use table::row_heights as table_row_heights;
 pub use transition::{SlideParts, composite_transition, render_transition};
@@ -947,17 +949,24 @@ impl Renderer {
                 let pf = deckcraft_model::style::PictureFill { media: *media, ..Default::default() };
                 paint::picture(ctx, f.pres, &pf, Rect::new(0.0, 0.0, w, h), m, None);
             }
+            ShapeKind::Opaque { preview: None, .. } => {
+                ctx.set_transform(m);
+                paint::missing(ctx, Rect::new(0.0, 0.0, w, h), m);
+            }
             ShapeKind::Media(mc) => {
                 ctx.set_transform(m);
                 let bounds = Rect::new(0.0, 0.0, w, h);
-                if let Some(p) = mc.poster {
+                let missing = f.pres.media(mc.media).is_none_or(|item| item.data.is_empty() && item.link.is_none());
+                if missing {
+                    paint::missing(ctx, bounds, m);
+                } else if let Some(p) = mc.poster {
                     let pf = deckcraft_model::style::PictureFill { media: p, ..Default::default() };
                     paint::picture(ctx, f.pres, &pf, bounds, m, None);
                 } else if mc.video {
                     ctx.set_paint(peniko::Color::from_rgba8(20, 20, 24, 255));
                     ctx.fill_rect(&bounds);
                 }
-                if !mc.video || mc.poster.is_none() {
+                if !missing && (!mc.video || mc.poster.is_none()) {
                     paint::media_glyph(ctx, mc.video, bounds);
                 }
             }

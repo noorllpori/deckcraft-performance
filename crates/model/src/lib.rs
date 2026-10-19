@@ -826,6 +826,15 @@ pub fn media_content_hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+/// A document-scoped font face. `style` is one of Regular, Bold, Italic, Bold Italic.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmbeddedFont {
+    pub family: String,
+    pub style: String,
+    pub media: MediaId,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Presentation {
@@ -849,6 +858,11 @@ pub struct Presentation {
     pub next_id: u32,
     /// Embedded fonts (family names; bytes in `media`).
     pub embedded_fonts: Vec<(String, MediaId)>,
+    /// Style-aware embedded fonts; the legacy family/media pairs remain readable.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub embedded_font_faces: Vec<EmbeddedFont>,
+    /// Package editable fonts on save when the font's embedding flags permit it.
+    pub auto_embed_fonts: bool,
     /// Table styles defined in the file (`ppt/tableStyles.xml`).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub table_styles: Vec<table::TableStyleDef>,

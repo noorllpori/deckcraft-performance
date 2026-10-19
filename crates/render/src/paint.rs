@@ -184,14 +184,14 @@ pub fn circle_gradient(focus: [f64; 4], bounds: Rect, tile: Rect) -> peniko::Gra
 /// GIF shows its frame at `gif_time` seconds.
 pub fn picture(ctx: &mut RenderContext, pres: &Presentation, pf: &PictureFill, bounds: Rect, m: Affine, gif_time: Option<f64>) {
     let Some(item) = pres.media(pf.media) else {
-        missing(ctx, bounds);
+        missing(ctx, bounds, m);
         return;
     };
     let px_scale = crate::scale_of(m);
     let want = (bounds.width().max(bounds.height()) * px_scale).max(1.0);
     let frame = gif_time.and_then(|t| images::gif_pixmap(&item.data, &pf.adjust, t));
     let Some(pm) = frame.or_else(|| images::decode_for(&item.data, want, &pf.adjust)) else {
-        missing(ctx, bounds);
+        missing(ctx, bounds, m);
         return;
     };
     let (iw, ih) = (pm.width() as f64, pm.height() as f64);
@@ -290,7 +290,20 @@ fn draw_image(ctx: &mut RenderContext, image: &vello_cpu::Image, iw: f64, ih: f6
     }
 }
 
-fn missing(ctx: &mut RenderContext, b: Rect) {
+pub(crate) fn missing(ctx: &mut RenderContext, b: Rect, m: Affine) {
+    static NOTICE: std::sync::OnceLock<std::sync::Arc<Vec<u8>>> = std::sync::OnceLock::new();
+    let bytes = NOTICE
+        .get_or_init(|| std::sync::Arc::new(crate::compatibility_notice_image("格式不支持、文件缺失或损坏\nUnsupported / missing content").to_png()));
+    if let Some(pm) = images::decode_for(bytes, 480.0, &Default::default()) {
+        let (iw, ih) = (pm.width() as f64, pm.height() as f64);
+        let image = vello_cpu::Image {
+            image: vello_cpu::ImageSource::Pixmap(pm),
+            sampler: peniko::ImageSampler { quality: peniko::ImageQuality::High, ..Default::default() },
+        };
+        draw_image(ctx, &image, iw, ih, b, m, 1.0);
+        return;
+    }
+    ctx.set_transform(m);
     ctx.set_paint(peniko::Color::from_rgba8(230, 230, 230, 255));
     ctx.fill_rect(&b);
     ctx.set_paint(peniko::Color::from_rgba8(160, 160, 160, 255));

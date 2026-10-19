@@ -1,12 +1,12 @@
 # 性能版独立维护规则
 
-更新日期：2026-10-18。
+更新日期：2026-10-19。
 
 - **仓库**：[noorllpori/deckcraft](https://github.com/noorllpori/deckcraft)。保持 Fork 关系，便于追溯来源。
 - **长期开发及默认分支**：`performance`。新增功能、修复和文档在这里维护；不将本分支合入本仓库 `main` 或上游 `storytold/deckcraft` 主线。
 - **旧开发分支**：`codex/performance-edition` 保留，作为 0.6.2-performance.1 的历史入口；后续开发转到 `performance`，旧链接仍可使用。
 - **上游参考**：`main` 保留现状，作为未来同步上游的参考分支；当前并不保证它已同步最新上游。上游更新需另行检查并选择性引入，不能以同步操作覆盖性能版功能。
-- **发布版本**：使用 `0.6.2-performance.1` 形式，下一轮同基线更新可递增为 `0.6.2-performance.2`。保留已有标签 `performance-v0.6.2-performance.1`，发布后不移动标签。
+- **发布版本**：当前为 `0.6.3-performance.1`（MSI 数字版本 0.6.3，便于覆盖升级旧版本）。使用 `0.6.2-performance.1` 形式，下一轮同基线更新可递增为 `0.6.2-performance.2`。保留已有标签 `performance-v0.6.2-performance.1`，发布后不移动标签。
 - **发布渠道**：仅使用本 Fork 的 Releases；Release 必须说明附件、功能限制与验证情况。源码发布与安装包发布分别说明，不能把旧安装包标为新版本。
 - **贡献归属**：基础版保留上游许可证、NOTICE 和贡献者；性能版新增贡献单列葡萄拌大蒜（@noorllpori）及其 B 站链接。不将上游工作计入性能版个人贡献。
 - **性能描述**：实现参数可以公开；没有基准数据时不标百分比提速、倍数或恒定帧率。

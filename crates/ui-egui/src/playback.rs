@@ -1,12 +1,16 @@
 //! Prepared slide/animation frames. CPU work runs before playback on a worker.
 //! Frames share identical pixel tiles; only the displayed frame occupies GPU memory.
-use std::collections::{HashMap, VecDeque};
-use std::hash::{Hash, Hasher};
-use std::sync::{Arc, atomic::{AtomicBool, AtomicUsize, Ordering}, mpsc};
 use deckcraft_anim::ShowState;
 use deckcraft_model::Presentation;
 use deckcraft_render::{Image, RenderOpts};
 use egui::{Color32, ColorImage, TextureHandle};
+use std::collections::{HashMap, VecDeque};
+use std::hash::{Hash, Hasher};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
+    mpsc,
+};
 
 const FPS: f64 = 30.0;
 const TILE: usize = 64;
@@ -29,8 +33,7 @@ impl Frame {
             let y = (n / w.div_ceil(TILE)) * TILE;
             let tw = TILE.min(w - x);
             for row in 0..TILE.min(h - y) {
-                image.pixels[(y + row) * w + x..(y + row) * w + x + tw]
-                    .copy_from_slice(&tile[row * tw..(row + 1) * tw]);
+                image.pixels[(y + row) * w + x..(y + row) * w + x + tw].copy_from_slice(&tile[row * tw..(row + 1) * tw]);
             }
         }
         image
@@ -59,7 +62,9 @@ impl Tiles {
                     tile.clone()
                 } else {
                     self.bytes += pixels.len() * 4;
-                    if self.bytes > budget { return Err("Playback memory limit reached".into()); }
+                    if self.bytes > budget {
+                        return Err("Playback memory limit reached".into());
+                    }
                     let tile = Arc::new(pixels);
                     bucket.push(tile.clone());
                     tile
@@ -68,7 +73,9 @@ impl Tiles {
             }
         }
         self.bytes += tiles.len() * std::mem::size_of::<Arc<Vec<Color32>>>();
-        if self.bytes > budget { return Err("Playback memory limit reached".into()); }
+        if self.bytes > budget {
+            return Err("Playback memory limit reached".into());
+        }
         Ok(Arc::new(Frame { size: [w, h], tiles }))
     }
 }
@@ -103,7 +110,9 @@ struct Job {
     total: Arc<AtomicUsize>,
 }
 impl Drop for Job {
-    fn drop(&mut self) { self.cancel.store(true, Ordering::Relaxed); }
+    fn drop(&mut self) {
+        self.cancel.store(true, Ordering::Relaxed);
+    }
 }
 
 #[derive(Default)]
@@ -125,25 +134,41 @@ pub struct PlaybackCache {
 }
 impl PlaybackCache {
     pub fn sync(&mut self, doc: Arc<Presentation>, revision: u64, size: (u32, u32)) {
-        if self.size == size && self.revision == revision && self.source.as_ref().is_some_and(|p| Arc::ptr_eq(p, &doc)) { return; }
+        if self.size == size && self.revision == revision && self.source.as_ref().is_some_and(|p| Arc::ptr_eq(p, &doc)) {
+            return;
+        }
         self.cancel();
         let mut global = std::collections::hash_map::DefaultHasher::new();
         size.hash(&mut global);
         doc.slide_size.width.to_bits().hash(&mut global);
         doc.slide_size.height.to_bits().hash(&mut global);
-        serde_json::to_vec(&(&doc.header_footer, &doc.default_text_style, &doc.table_styles, &doc.show, doc.first_slide_number)).unwrap_or_default().hash(&mut global);
-        for media in &doc.media { media.id.hash(&mut global); Arc::as_ptr(&media.data).hash(&mut global); }
-        self.keys = doc.slides.iter().enumerate().map(|(i, s)| {
-            let mut hash = global.clone();
-            i.hash(&mut hash);
-            Arc::as_ptr(s).hash(&mut hash);
-            // Relevant inherited styles/layouts, including the fallback master.
-            if let Some((master, _)) = doc.master_for(s) { std::ptr::from_ref(master).hash(&mut hash); }
-            hash.finish()
-        }).collect();
+        serde_json::to_vec(&(&doc.header_footer, &doc.default_text_style, &doc.table_styles, &doc.show, doc.first_slide_number))
+            .unwrap_or_default()
+            .hash(&mut global);
+        for media in &doc.media {
+            media.id.hash(&mut global);
+            Arc::as_ptr(&media.data).hash(&mut global);
+        }
+        self.keys = doc
+            .slides
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let mut hash = global.clone();
+                i.hash(&mut hash);
+                Arc::as_ptr(s).hash(&mut hash);
+                // Relevant inherited styles/layouts, including the fallback master.
+                if let Some((master, _)) = doc.master_for(s) {
+                    std::ptr::from_ref(master).hash(&mut hash);
+                }
+                hash.finish()
+            })
+            .collect();
         self.entries.retain(|i, e| {
             let valid = self.keys.get(*i) == Some(&e.key);
-            if !valid { self.stale.insert(*i); }
+            if !valid {
+                self.stale.insert(*i);
+            }
             valid
         });
         self.errors.clear();
@@ -157,9 +182,13 @@ impl PlaybackCache {
     }
     pub fn start(&mut self, only: Option<usize>) {
         if let Some(i) = only {
-            if !self.entries.contains_key(&i) && !self.queue.contains(&i) && self.job.as_ref().is_none_or(|j| j.index != i) { self.queue.push_back(i); }
+            if !self.entries.contains_key(&i) && !self.queue.contains(&i) && self.job.as_ref().is_none_or(|j| j.index != i) {
+                self.queue.push_back(i);
+            }
         } else {
-            for i in 0..self.keys.len() { self.start(Some(i)); }
+            for i in 0..self.keys.len() {
+                self.start(Some(i));
+            }
         }
         self.errors.clear();
     }
@@ -201,21 +230,48 @@ impl PlaybackCache {
             self.auto_bulk_started = true;
         }
     }
-    pub fn cancel(&mut self) { self.queue.clear(); if let Some(j) = &self.job { j.cancel.store(true, Ordering::Relaxed); } }
-    pub fn clear(&mut self) { self.cancel(); self.entries.clear(); self.textures.clear(); self.errors.clear(); }
-    pub fn busy(&self) -> bool { self.job.is_some() || !self.queue.is_empty() }
-    pub fn ready(&self) -> bool { !self.keys.is_empty() && self.entries.len() == self.keys.len() }
-    pub fn bytes(&self) -> usize { self.entries.values().map(|e| e.page.bytes).sum() }
-    pub fn count(&self) -> usize { self.entries.len() }
-    pub fn status(&self, i: usize) -> &'static str {
-        if self.job.as_ref().is_some_and(|j| j.index == i) { "Preparing" }
-        else if self.queue.contains(&i) { "Queued" }
-        else if self.errors.contains_key(&i) { "Precompile failed" }
-        else if let Some(e) = self.entries.get(&i) { if e.page.live_media { "Cached; media plays live" } else { "Cached" } }
-        else if self.stale.contains(&i) { "Modified — rebuild required" }
-        else { "Not cached" }
+    pub fn cancel(&mut self) {
+        self.queue.clear();
+        if let Some(j) = &self.job {
+            j.cancel.store(true, Ordering::Relaxed);
+        }
     }
-    pub fn error(&self, i: usize) -> Option<&str> { self.errors.get(&i).map(String::as_str) }
+    pub fn clear(&mut self) {
+        self.cancel();
+        self.entries.clear();
+        self.textures.clear();
+        self.errors.clear();
+    }
+    pub fn busy(&self) -> bool {
+        self.job.is_some() || !self.queue.is_empty()
+    }
+    pub fn ready(&self) -> bool {
+        !self.keys.is_empty() && self.entries.len() == self.keys.len()
+    }
+    pub fn bytes(&self) -> usize {
+        self.entries.values().map(|e| e.page.bytes).sum()
+    }
+    pub fn count(&self) -> usize {
+        self.entries.len()
+    }
+    pub fn status(&self, i: usize) -> &'static str {
+        if self.job.as_ref().is_some_and(|j| j.index == i) {
+            "Preparing"
+        } else if self.queue.contains(&i) {
+            "Queued"
+        } else if self.errors.contains_key(&i) {
+            "Precompile failed"
+        } else if let Some(e) = self.entries.get(&i) {
+            if e.page.live_media { "Cached; media plays live" } else { "Cached" }
+        } else if self.stale.contains(&i) {
+            "Modified — rebuild required"
+        } else {
+            "Not cached"
+        }
+    }
+    pub fn error(&self, i: usize) -> Option<&str> {
+        self.errors.get(&i).map(String::as_str)
+    }
     pub fn page_info(&self, i: usize) -> Option<(usize, usize)> {
         self.entries.get(&i).map(|e| (e.page.states.len() + e.page.steps.iter().map(Vec::len).sum::<usize>(), e.page.bytes))
     }
@@ -230,15 +286,22 @@ impl PlaybackCache {
                         self.stale.remove(&job.index);
                         self.entries.insert(job.index, Entry { key: job.key, _source: job.source.clone(), page: Arc::new(page) });
                     }
-                    Err(e) => { self.errors.insert(job.index, e); }
+                    Err(e) => {
+                        self.errors.insert(job.index, e);
+                    }
                 },
                 Err(mpsc::TryRecvError::Empty) => self.job = Some(job),
-                Err(mpsc::TryRecvError::Disconnected) => { self.errors.insert(job.index, "Playback worker stopped".into()); }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.errors.insert(job.index, "Playback worker stopped".into());
+                }
                 _ => {}
             }
         }
-        if self.job.is_none() && let Some(index) = self.queue.pop_front()
-            && let Some(key) = self.keys.get(index).copied() && let Some(source) = self.source.clone() {
+        if self.job.is_none()
+            && let Some(index) = self.queue.pop_front()
+            && let Some(key) = self.keys.get(index).copied()
+            && let Some(source) = self.source.clone()
+        {
             let (tx, rx) = mpsc::sync_channel(1);
             let cancel = Arc::new(AtomicBool::new(false));
             let done = Arc::new(AtomicUsize::new(0));
@@ -255,7 +318,9 @@ impl PlaybackCache {
                     wake.request_repaint();
                 }) {
                     Ok(_) => self.job = Some(job),
-                    Err(e) => { self.errors.insert(index, e.to_string()); }
+                    Err(e) => {
+                        self.errors.insert(index, e.to_string());
+                    }
                 }
             }
             #[cfg(target_arch = "wasm32")]
@@ -264,39 +329,60 @@ impl PlaybackCache {
                 self.errors.insert(index, "Background precompile requires the desktop app".into());
             }
         }
-        if self.busy() { ctx.request_repaint_after(std::time::Duration::from_millis(50)); }
+        if self.busy() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(50));
+        }
     }
     fn upload(&mut self, ctx: &egui::Context, frame: Arc<Frame>) -> TextureHandle {
         if let Some(i) = self.textures.iter().position(|(f, _)| Arc::ptr_eq(f, &frame))
-            && let Some(pair) = self.textures.remove(i) {
-            let tex = pair.1.clone(); self.textures.push_back(pair); return tex;
+            && let Some(pair) = self.textures.remove(i)
+        {
+            let tex = pair.1.clone();
+            self.textures.push_back(pair);
+            return tex;
         }
         let tex = ctx.load_texture("prepared-playback", frame.image(), egui::TextureOptions::LINEAR);
         self.textures.push_back((frame, tex.clone()));
-        while self.textures.len() > 8 { self.textures.pop_front(); }
+        while self.textures.len() > 8 {
+            self.textures.pop_front();
+        }
         tex
     }
     pub fn texture(&mut self, ctx: &egui::Context, index: usize, step: usize, t: f64, playing: bool) -> Option<TextureHandle> {
         let frame = self.entries.get(&index)?.page.frame(step, t, playing)?;
         Some(self.upload(ctx, frame))
     }
-    pub fn has_live_media(&self, index: usize) -> bool { self.entries.get(&index).is_some_and(|e| e.page.live_media) }
+    pub fn has_live_media(&self, index: usize) -> bool {
+        self.entries.get(&index).is_some_and(|e| e.page.live_media)
+    }
     pub fn parts(&mut self, ctx: &egui::Context, index: usize) -> Option<[TextureHandle; 2]> {
         let frames = self.entries.get(&index)?.page.parts.clone();
         Some([self.upload(ctx, frames[0].clone()), self.upload(ctx, frames[1].clone())])
     }
 }
 
-fn prepare(doc: &Presentation, index: usize, size: (u32, u32), budget: usize, cancel: &AtomicBool, done: &AtomicUsize, total: &AtomicUsize) -> Result<Page, String> {
+fn prepare(
+    doc: &Presentation,
+    index: usize,
+    size: (u32, u32),
+    budget: usize,
+    cancel: &AtomicBool,
+    done: &AtomicUsize,
+    total: &AtomicUsize,
+) -> Result<Page, String> {
     let tl = ShowState::timeline(doc, index);
     let steps = if doc.show.without_animation { 0 } else { tl.steps() };
     let counts: Vec<usize> = (0..steps).map(|s| (tl.step_duration(s).max(0.0) * FPS).ceil().min(MAX_FRAMES as f64) as usize + 1).collect();
     let count = counts.iter().try_fold(steps + 3, |n, c| n.checked_add(*c)).ok_or("Animation is too long to cache")?;
-    if count > MAX_FRAMES { return Err("Animation is too long to cache".into()); }
+    if count > MAX_FRAMES {
+        return Err("Animation is too long to cache".into());
+    }
     total.store(count, Ordering::Relaxed);
     let mut tiles = Tiles::default();
     let mut store = |image: Image| -> Result<Arc<Frame>, String> {
-        if cancel.load(Ordering::Relaxed) { return Err("Cancelled".into()); }
+        if cancel.load(Ordering::Relaxed) {
+            return Err("Cancelled".into());
+        }
         let frame = tiles.frame(image, budget)?;
         done.fetch_add(1, Ordering::Relaxed);
         Ok(frame)
@@ -305,15 +391,27 @@ fn prepare(doc: &Presentation, index: usize, size: (u32, u32), budget: usize, ca
     let mut states = Vec::new();
     let mut animations = Vec::new();
     for step in 0..=steps {
-        if cancel.load(Ordering::Relaxed) { return Err("Cancelled".into()); }
+        if cancel.load(Ordering::Relaxed) {
+            return Err("Cancelled".into());
+        }
         let f = |id| crate::show::state_for(&tl, id, if doc.show.without_animation { tl.steps() } else { step }, 0.0);
-        states.push(store(deckcraft_render::render_slide(doc, index, &RenderOpts { scale: opts.scale, size: opts.size, state: Some(&f), threads: opts.threads, ..Default::default() }))?);
+        states.push(store(deckcraft_render::render_slide(
+            doc,
+            index,
+            &RenderOpts { scale: opts.scale, size: opts.size, state: Some(&f), threads: opts.threads, ..Default::default() },
+        ))?);
         if let Some(count) = counts.get(step) {
             let mut frames = Vec::new();
             for frame in 0..*count {
-                if cancel.load(Ordering::Relaxed) { return Err("Cancelled".into()); }
+                if cancel.load(Ordering::Relaxed) {
+                    return Err("Cancelled".into());
+                }
                 let f = |id| crate::show::state_for(&tl, id, step, frame as f64 / FPS);
-                frames.push(store(deckcraft_render::render_slide(doc, index, &RenderOpts { scale: opts.scale, size: opts.size, state: Some(&f), threads: opts.threads, ..Default::default() }))?);
+                frames.push(store(deckcraft_render::render_slide(
+                    doc,
+                    index,
+                    &RenderOpts { scale: opts.scale, size: opts.size, state: Some(&f), threads: opts.threads, ..Default::default() },
+                ))?);
             }
             animations.push(frames);
         }
@@ -341,12 +439,7 @@ pub fn menu(app: &mut crate::SlideApp, ui: &mut egui::Ui) -> bool {
     let size = crate::show::playback_size_for_context(ui.ctx(), &doc);
     ui.label(crate::i18n::format_tr!(ui.ctx(), "Cache size: {} × {} px", "缓存尺寸：{} × {} 像素", size.0, size.1));
     ui.label(crate::i18n::format_tr!(ui.ctx(), "Cached {} of {} slides", "已缓存 {} / {} 张幻灯片", app.playback_cache.count(), doc.slides.len()));
-    ui.label(format!(
-        "{}: {:.1} / {} MiB",
-        tr(ui.ctx(), "Memory"),
-        app.playback_cache.bytes() as f64 / 1048576.0,
-        MEMORY_LIMIT_MIB,
-    ));
+    ui.label(format!("{}: {:.1} / {} MiB", tr(ui.ctx(), "Memory"), app.playback_cache.bytes() as f64 / 1048576.0, MEMORY_LIMIT_MIB,));
     ui.label(tr(ui.ctx(), "Animation steps are prepared at 30 fps. Video and GIF playback remains live."));
     if let Some((i, done, total)) = app.playback_cache.progress() {
         ui.label(format!("{} {}: {} / {}", tr(ui.ctx(), "Preparing slide"), i + 1, done, total));
@@ -360,18 +453,32 @@ pub fn menu(app: &mut crate::SlideApp, ui: &mut egui::Ui) -> bool {
                 ui.label(tr(ui.ctx(), app.playback_cache.status(i)));
                 if let Some((frames, bytes)) = app.playback_cache.page_info(i) {
                     ui.label(format!("{} {} · {:.1} MiB", frames, tr(ui.ctx(), "frames"), bytes as f64 / 1048576.0));
-                } else if ui.small_button(tr(ui.ctx(), "Cache this slide")).clicked() { rebuild = Some(i); }
+                } else if ui.small_button(tr(ui.ctx(), "Cache this slide")).clicked() {
+                    rebuild = Some(i);
+                }
             });
-            if let Some(error) = app.playback_cache.error(i) { ui.label(tr(ui.ctx(), error)); }
+            if let Some(error) = app.playback_cache.error(i) {
+                ui.label(tr(ui.ctx(), error));
+            }
         }
     });
-    if let Some(i) = rebuild { app.playback_cache.start(Some(i)); }
+    if let Some(i) = rebuild {
+        app.playback_cache.start(Some(i));
+    }
     let mut close = false;
     ui.horizontal(|ui| {
-        if ui.add_enabled(!app.playback_cache.busy(), egui::Button::new(tr(ui.ctx(), "Cache pending slides"))).clicked() { app.playback_cache.start(None); }
-        if ui.add_enabled(app.playback_cache.busy(), egui::Button::new(tr(ui.ctx(), "Stop preparation"))).clicked() { app.playback_cache.cancel(); }
-        if ui.button(tr(ui.ctx(), "Clear Cache")).clicked() { app.playback_cache.clear(); }
-        if ui.button(tr(ui.ctx(), "Close")).clicked() { close = true; }
+        if ui.add_enabled(!app.playback_cache.busy(), egui::Button::new(tr(ui.ctx(), "Cache pending slides"))).clicked() {
+            app.playback_cache.start(None);
+        }
+        if ui.add_enabled(app.playback_cache.busy(), egui::Button::new(tr(ui.ctx(), "Stop preparation"))).clicked() {
+            app.playback_cache.cancel();
+        }
+        if ui.button(tr(ui.ctx(), "Clear Cache")).clicked() {
+            app.playback_cache.clear();
+        }
+        if ui.button(tr(ui.ctx(), "Close")).clicked() {
+            close = true;
+        }
     });
     close
 }
