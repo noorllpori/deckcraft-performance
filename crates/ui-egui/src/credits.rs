@@ -230,15 +230,17 @@ impl Default for View {
 
 /// About ▸ Contributors: a name toggle, a sort, and the list as a grab bag or a table.
 pub fn contributors_ui(ui: &mut egui::Ui) {
-    ui.label(RichText::new(crate::i18n::tr(ui.ctx(), "DeckCraft Performance Edition")).strong());
-    ui.label(crate::i18n::tr(ui.ctx(), "Performance optimization and Simplified Chinese localization"));
+    let zh = crate::i18n::language(ui.ctx()) == crate::i18n::Language::SimplifiedChinese;
+    let label = |en, cn| if zh { cn } else { en };
+    ui.label(RichText::new(label("DeckCraft Performance Edition", "DeckCraft 性能版贡献")).strong());
+    ui.label(label("Performance optimization and Simplified Chinese localization", "性能优化、兼容改进与简体中文本地化"));
     ui.horizontal_wrapped(|ui| {
         ui.hyperlink_to("葡萄拌大蒜 (@noorllpori)", "https://github.com/noorllpori");
         ui.label("·");
-        ui.hyperlink_to(crate::i18n::tr(ui.ctx(), "Bilibili profile"), "https://space.bilibili.com/38222138?spm_id_from=333.1007.0.0");
+        ui.hyperlink_to(label("Bilibili profile", "B 站主页"), "https://space.bilibili.com/38222138?spm_id_from=333.1007.0.0");
     });
     ui.separator();
-    ui.label(RichText::new(crate::i18n::tr(ui.ctx(), "Base DeckCraft contributors")).strong());
+    ui.label(RichText::new(label("Base DeckCraft contributors", "基础版 DeckCraft 贡献者")).strong());
     let id = egui::Id::new("credits_view");
     let mut v = ui.data_mut(|d| d.get_temp::<View>(id)).unwrap_or_default();
     ui.horizontal_wrapped(|ui| {

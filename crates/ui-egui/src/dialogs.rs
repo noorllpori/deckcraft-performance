@@ -760,9 +760,11 @@ fn body(app: &mut SlideApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             match tab.as_str() {
                 "contributors" | "models" => {
                     // The credits need room for the table; the About tab keeps its compact size.
-                    ui.set_min_size(vec2(640.0, 380.0));
-                    ui.set_max_height(380.0);
-                    if tab == "models" { crate::credits::models_ui(ui) } else { crate::credits::contributors_ui(ui) }
+                    ui.vertical(|ui| {
+                        ui.set_min_size(vec2(640.0, 380.0));
+                        ui.set_max_height(380.0);
+                        if tab == "models" { crate::credits::models_ui(ui) } else { crate::credits::contributors_ui(ui) }
+                    });
                 }
                 _ => about(app, ui),
             }
