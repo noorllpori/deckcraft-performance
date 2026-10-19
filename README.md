@@ -4,7 +4,7 @@
 
 这是基于 [Storytold DeckCraft](https://github.com/storytold/deckcraft) 的独立性能增强分支，由 [葡萄拌大蒜（@noorllpori）](https://github.com/noorllpori) 维护。它不是上游官方发行版，也不要求将性能版功能合入上游主线。
 
-**长期维护分支：[`performance`](https://github.com/noorllpori/deckcraft/tree/performance)** · **当前版本：`0.6.3-performance.1`** · **主要面向 Windows 桌面端，仍在迭代。**
+**长期维护分支：[`performance`](https://github.com/noorllpori/deckcraft-performance/tree/performance)** · **当前版本：`0.6.3-performance.1`** · **主要面向 Windows 桌面端，仍在迭代。**
 
 | 目前可用 | 作用与边界 |
 |---|---|
@@ -20,7 +20,7 @@
 
 **性能改善的重点是减少重复渲染、降低拖动时的像素工作量，以及把耗时准备移到后台。尚未完成同硬件、同文件的性能基准测试，因此不宣称“快几倍”或固定帧率。**
 
-阅读 [功能与性能说明](docs/performance-edition.md)、[更新日志](CHANGELOG.md)、[PSD 支持范围](docs/psd-linked-pictures.md) 和 [独立分支维护规则](docs/performance-maintenance.md)。版本发布在 [本 Fork 的 Releases](https://github.com/noorllpori/deckcraft/releases)；安装包以各版本实际附件为准，上游下载链接不代表本性能版。
+阅读 [功能与性能说明](docs/performance-edition.md)、[更新日志](CHANGELOG.md)、[PSD 支持范围](docs/psd-linked-pictures.md) 和 [独立分支维护规则](docs/performance-maintenance.md)。版本发布在 [本 Fork 的 Releases](https://github.com/noorllpori/deckcraft-performance/releases)；安装包以各版本实际附件为准，上游下载链接不代表本性能版。
 
 性能版贡献：[葡萄拌大蒜的 B 站主页](https://space.bilibili.com/38222138)。基础版作者、许可证和贡献者保留原有署名，并在应用“关于”中与性能版贡献分开。
 

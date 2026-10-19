@@ -1,8 +1,8 @@
 # 性能版独立维护规则
 
-更新日期：2026-10-19。
+更新日期：2026-10-19。仓库已更名为 `deckcraft-performance`；默认分支仍为 `performance`。
 
-- **仓库**：[noorllpori/deckcraft](https://github.com/noorllpori/deckcraft)。保持 Fork 关系，便于追溯来源。
+- **仓库**：[noorllpori/deckcraft-performance](https://github.com/noorllpori/deckcraft-performance)。保持 Fork 关系，便于追溯来源。
 - **长期开发及默认分支**：`performance`。新增功能、修复和文档在这里维护；不将本分支合入本仓库 `main` 或上游 `storytold/deckcraft` 主线。
 - **旧开发分支**：`codex/performance-edition` 保留，作为 0.6.2-performance.1 的历史入口；后续开发转到 `performance`，旧链接仍可使用。
 - **上游参考**：`main` 保留现状，作为未来同步上游的参考分支；当前并不保证它已同步最新上游。上游更新需另行检查并选择性引入，不能以同步操作覆盖性能版功能。

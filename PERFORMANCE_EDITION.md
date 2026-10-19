@@ -1,6 +1,6 @@
 # DeckCraft 性能版
 
-当前版本：`0.6.3-performance.1`。长期维护分支：[`performance`](https://github.com/noorllpori/deckcraft/tree/performance)。本版独立维护，不并入上游或本仓库主线。
+当前版本：`0.6.3-performance.1`。长期维护分支：[`performance`](https://github.com/noorllpori/deckcraft-performance/tree/performance)。本版独立维护，不并入上游或本仓库主线。
 
 完整信息：[功能与性能说明](docs/performance-edition.md) · [更新日志](CHANGELOG.md) · [维护规则](docs/performance-maintenance.md)。性能优化参数已列明，尚未提供对照跑分，不宣称固定提速倍数。
 
